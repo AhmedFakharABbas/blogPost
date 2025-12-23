@@ -1,0 +1,153 @@
+'use client'
+
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+function SignInForm() {
+  const [isLogin, setIsLogin] = useState(true)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    const endpoint = isLogin ? '/api/login' : '/api/register'
+    const body = isLogin 
+      ? { email, password }
+      : { name, email, password }
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include', // Important: Include cookies in request/response
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || (isLogin ? 'Login failed' : 'Registration failed'))
+      }
+
+      // Store token in localStorage (for client-side use if needed)
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+      }
+
+      // Optional: store user info
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+
+      // The cookie is set by the server in the response headers
+      // We need to wait for the browser to process it before redirecting
+      // Using a small delay and then full page reload ensures cookie is sent
+      setTimeout(() => {
+        // Force a full page reload to ensure cookie is sent with request
+        window.location.replace(callbackUrl)
+      }, 100)
+    } catch (err: any) {
+      setError(err.message)
+      setLoading(false)
+    }
+  }
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin)
+    setError('')
+    setName('')
+    setEmail('')
+    setPassword('')
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center">
+            {isLogin ? 'Welcome Back' : 'Create an Account'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="John Doe"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Enter a strong password"
+              />
+            </div>
+
+            {error && <p className="text-red-600 text-center text-sm">{error}</p>}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Loading...' : isLogin ? 'Sign In' : 'Sign Up'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-sm">
+            <button type="button" onClick={toggleMode} className="text-blue-600 hover:underline">
+              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+            </button>
+          </div>
+
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
+  )
+}
