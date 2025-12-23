@@ -24,7 +24,7 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
     <NavigationMenu>
       <NavigationMenuList className="flex gap-6">
         <NavigationMenuItem>
-          <Link href="/" legacyBehavior passHref>
+          <Link href="/">
             <NavigationMenuLink className="font-medium">Home</NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
@@ -47,7 +47,7 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
         </NavigationMenuItem>
 
         <NavigationMenuItem>
-          <Link href="/about" legacyBehavior passHref>
+          <Link href="/about">
             <NavigationMenuLink className="font-medium">About</NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
