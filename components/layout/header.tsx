@@ -36,6 +36,7 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
             <Link href={`/?category=${category._id}`} className="font-medium">
               {category.name}
             </Link>
+          
           </NavigationMenuLink>
         </NavigationMenuItem>
         ))}
