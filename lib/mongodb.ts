@@ -19,9 +19,13 @@ export async function connectToDatabase() {
   const MONGODB_URI = process.env.MONGODB_URI;
 
   if (!MONGODB_URI) {
-    throw new Error('Please define MONGODB_URI in your environment variables');
+    const error = 'Please define MONGODB_URI in your environment variables';
+    console.error('❌', error);
+    throw new Error(error);
   }
+
   let cached = global.mongoose as { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+  
   // If connection exists and is ready, return it
   if (cached.conn) {
     // Check if connection is still alive
@@ -29,6 +33,7 @@ export async function connectToDatabase() {
       return cached.conn;
     } else {
       // Connection is dead, reset it
+      console.warn('⚠️ MongoDB connection dead, resetting...');
       cached.conn = null;
       cached.promise = null;
     }
@@ -38,16 +43,24 @@ export async function connectToDatabase() {
     const opts = {
       bufferCommands: false,
       maxPoolSize: 10, // Maintain up to 10 socket connections
-      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      serverSelectionTimeoutMS: 10000, // Increased to 10 seconds for serverless
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
       family: 4, // Use IPv4, skip trying IPv6
+      // Additional options for serverless environments
+      retryWrites: true,
+      retryReads: true,
     };
 
+    console.log('🔄 Attempting MongoDB connection...');
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
       console.log('✅ MongoDB connected successfully');
       return mongoose;
     }).catch((error) => {
-      console.error('❌ MongoDB connection error:', error);
+      console.error('❌ MongoDB connection error:', {
+        message: error?.message,
+        name: error?.name,
+        code: error?.code,
+      });
       cached.promise = null; // Reset promise on error
       throw error;
     });
@@ -55,7 +68,12 @@ export async function connectToDatabase() {
 
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (e: any) {
+    console.error('❌ Failed to establish MongoDB connection:', {
+      message: e?.message,
+      name: e?.name,
+      code: e?.code,
+    });
     cached.promise = null;
     throw e;
   }

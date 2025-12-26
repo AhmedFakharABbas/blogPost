@@ -24,21 +24,44 @@ async function BlogListServer({
 }: {
   categoryId: string | undefined;
 }) {
-  const result = await getPublishedPosts(categoryId, 6, 0);
+  try {
+    const result = await getPublishedPosts(categoryId, 6, 0);
 
-  const posts: PostWithRelations[] = (result.posts || []).map(post => ({
-    ...post,
-    createdAt: new Date(post.createdAt),
-    updatedAt: new Date(post.updatedAt),
-  }));
+    if (!result || !result.posts) {
+      console.error('❌ No posts returned from getPublishedPosts');
+      return (
+        <BlogListClient
+          initialPosts={[]}
+          initialHasMore={false}
+          categoryId={categoryId}
+        />
+      );
+    }
 
-  return (
-    <BlogListClient
-      initialPosts={posts}
-      initialHasMore={result.hasMore || false}
-      categoryId={categoryId}
-    />
-  );
+    const posts: PostWithRelations[] = (result.posts || []).map(post => ({
+      ...post,
+      createdAt: new Date(post.createdAt),
+      updatedAt: new Date(post.updatedAt),
+    }));
+
+    return (
+      <BlogListClient
+        initialPosts={posts}
+        initialHasMore={result.hasMore || false}
+        categoryId={categoryId}
+      />
+    );
+  } catch (error: any) {
+    console.error('❌ Error in BlogListServer:', error);
+    // Return empty state instead of crashing
+    return (
+      <BlogListClient
+        initialPosts={[]}
+        initialHasMore={false}
+        categoryId={categoryId}
+      />
+    );
+  }
 }
 
 export default async function BlogPage({

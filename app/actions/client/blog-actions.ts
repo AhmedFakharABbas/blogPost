@@ -31,17 +31,17 @@ async function _getPublishedPosts(
     limit: number = 6,
     skip: number = 0
 ) {
-    await connectToDatabase();
-    
-    // Build query conditionally
-    const query: any = { published: true };
-    
-    // Only add categoryId filter if provided and not empty
-    if (categoryId && typeof categoryId === 'string' && categoryId.trim().length > 0) {
-        query.categoryId = categoryId.trim();
-    }
-    
     try {
+        await connectToDatabase();
+        
+        // Build query conditionally
+        const query: any = { published: true };
+        
+        // Only add categoryId filter if provided and not empty
+        if (categoryId && typeof categoryId === 'string' && categoryId.trim().length > 0) {
+            query.categoryId = categoryId.trim();
+        }
+        
         // Fetch one extra post to determine if there are more
         const posts = await Post.find(query)
             .select('title slug content excerpt featuredImage authorId categoryId createdAt updatedAt')
@@ -82,11 +82,18 @@ async function _getPublishedPosts(
             hasMore,
         };
     } catch (error: any) {
-        console.error('Error fetching published posts:', error);
-        return {
-            posts: [],
-            hasMore: false,
-        };
+        // Log detailed error for debugging in production
+        console.error('❌ Error fetching published posts:', {
+            message: error?.message,
+            stack: error?.stack,
+            categoryId,
+            limit,
+            skip,
+            mongodbUri: process.env.MONGODB_URI ? 'Set' : 'Missing',
+        });
+        
+        // Re-throw error so it can be caught by the caller
+        throw new Error(`Failed to fetch posts: ${error?.message || 'Unknown error'}`);
     }
 }
 
@@ -96,19 +103,47 @@ export async function getPublishedPosts(
     limit: number = 6,
     skip: number = 0
 ) {
-    // Only cache the first page (skip === 0) to avoid stale pagination
-    if (skip === 0) {
-        const cacheKey = `published-posts-${categoryId || 'all'}-${limit}`;
-        return unstable_cache(
-            async () => _getPublishedPosts(categoryId, limit, skip),
-            [cacheKey],
-            {
-                revalidate: 60, // Cache for 60 seconds
-                tags: ['posts', categoryId ? `category-${categoryId}` : 'all-posts'],
+    try {
+        // Only cache the first page (skip === 0) to avoid stale pagination
+        if (skip === 0) {
+            const cacheKey = `published-posts-${categoryId || 'all'}-${limit}`;
+            try {
+                return await unstable_cache(
+                    async () => {
+                        try {
+                            return await _getPublishedPosts(categoryId, limit, skip);
+                        } catch (error) {
+                            console.error('❌ Error in cached function:', error);
+                            throw error;
+                        }
+                    },
+                    [cacheKey],
+                    {
+                        revalidate: 60, // Cache for 60 seconds
+                        tags: ['posts', categoryId ? `category-${categoryId}` : 'all-posts'],
+                    }
+                )();
+            } catch (cacheError: any) {
+                // If caching fails, try direct call
+                console.warn('⚠️ Cache failed, trying direct call:', cacheError?.message);
+                return _getPublishedPosts(categoryId, limit, skip);
             }
-        )();
+        }
+        
+        // For pagination (skip > 0), call directly
+        return _getPublishedPosts(categoryId, limit, skip);
+    } catch (error: any) {
+        console.error('❌ getPublishedPosts error:', {
+            message: error?.message,
+            stack: error?.stack,
+            categoryId,
+            limit,
+            skip,
+        });
+        // Return empty result instead of throwing to prevent page crashes
+        return {
+            posts: [],
+            hasMore: false,
+        };
     }
-    
-    // For pagination (skip > 0), don't cache to ensure fresh data
-    return _getPublishedPosts(categoryId, limit, skip);
 }
