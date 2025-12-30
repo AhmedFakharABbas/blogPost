@@ -27,9 +27,9 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
   return (
     <NavigationMenu>
       <NavigationMenuList className="flex gap-6">
-      <NavigationMenuItem >
+        <NavigationMenuItem >
           <NavigationMenuLink asChild >
-            <Link href="/" className="font-medium">
+            <Link href="/" prefetch={true} className="font-medium">
               All Posts
             </Link>
           </NavigationMenuLink>
@@ -37,7 +37,7 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
       {categories.map((category) => (
         <NavigationMenuItem key={category._id}>
           <NavigationMenuLink asChild key={category._id}>
-            <Link href={`/?category=${category._id}`} className="font-medium">
+            <Link href={`/?category=${category._id}`} prefetch={true} className="font-medium">
               {category.name}
             </Link>
           

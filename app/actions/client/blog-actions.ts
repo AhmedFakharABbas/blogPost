@@ -51,9 +51,10 @@ async function _getPublishedPosts(
         }
         
         // Fetch one extra post to determine if there are more
+        // Optimized query with only needed fields
         const posts = await Post.find(query)
-            .select('title slug content excerpt featuredImage authorId categoryId createdAt updatedAt')
-            .populate('authorId', 'name email')
+            .select('title slug excerpt featuredImage authorId categoryId createdAt')
+            .populate('authorId', 'name')
             .populate('categoryId', 'name')
             .sort({ createdAt: -1 })
             .limit(limit + 1) // Fetch one extra to check if there are more
@@ -105,7 +106,7 @@ async function _getPublishedPosts(
     }
 }
 
-// Cache the function for better performance (60 seconds cache)
+// Cache the function for better performance (5 minutes cache for faster loading)
 export async function getPublishedPosts(
     categoryId?: string | null,
     limit: number = 6,
@@ -127,7 +128,7 @@ export async function getPublishedPosts(
                     },
                     [cacheKey],
                     {
-                        revalidate: 60, // Cache for 60 seconds
+                        revalidate: 300, // Cache for 5 minutes (longer = faster)
                         tags: ['posts', categoryId ? `category-${categoryId}` : 'all-posts'],
                     }
                 )();

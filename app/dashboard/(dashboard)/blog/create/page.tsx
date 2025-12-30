@@ -56,8 +56,13 @@ export default function CreateBlogPage() {
   const [categories, setCategories] = useState<Awaited<ReturnType<typeof getCategories>>>([]);
 
   useEffect(() => {
-    getUsers().then(setUsers);
-    getCategories().then(setCategories);
+    // Load users and categories in parallel for faster page load
+    Promise.all([
+      getUsers().then(setUsers),
+      getCategories().then(setCategories),
+    ]).catch(error => {
+      console.error('Error loading form data:', error);
+    });
     
     // Check Cloudinary configuration
     if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) {

@@ -7,26 +7,39 @@ import { ReadOnlyEditor } from "@/components/ui/read-only-editor";
 import Image from "next/image";
 import { Suspense } from "react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import Post from "@/models/Post";
+import { unstable_cache } from "next/cache";
 
-// Revalidate every 60 seconds for fresh content
-export const revalidate = 60;
+// Revalidate every 5 minutes for fresh content (longer cache = faster)
+export const revalidate = 300;
+
+// Cache function for individual blog posts - Optimized query
+async function _getPostBySlug(slug: string) {
+  await connectToDatabase();
+  // Use compound index: { published: 1, slug: 1 } for fastest lookup
+  const post = await Post.findOne({ published: true, slug })
+    .select('title slug content excerpt featuredImage authorId categoryId createdAt')
+    .populate('authorId', 'name')
+    .populate('categoryId', 'name')
+    .lean();
+  return post;
+}
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
-  // Connect to database first
-  await connectToDatabase();
-  
-  // Import models AFTER connection (important for serverless environments)
-  const PostModule = await import("@/models/Post");
-  const UserModule = await import("@/models/User");
-  const Post = PostModule.default;
-  
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
 
-  // Fetch the single post by slug
-  const post = await Post.findOne({ slug, published: true })
-    .populate('authorId', 'name')
-    .lean();
+  // Use cached function for faster loading
+  const getCachedPost = unstable_cache(
+    () => _getPostBySlug(slug),
+    [`post-${slug}`],
+    {
+      revalidate: 300, // Cache for 5 minutes
+      tags: ['posts', `post-${slug}`],
+    }
+  );
+
+  const post = await getCachedPost();
 
   // If post not found or not published, show 404
   if (!post) {
@@ -40,28 +53,15 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <div className="container mx-auto px-4 py-40 md:py-12 max-w-4xl">
       {/* Featured Image (if exists) */}
-      <Suspense fallback={<div>Loading...</div>}>
-      {post.featuredImage && (
-        <div className="mb-8 -mx-4 md:mx-0 rounded-lg overflow-hidden shadow-xl">
-          <AspectRatio ratio={16 / 9}>
-          <Image
-            src={post.featuredImage}
-            alt={post.title}
-            fill
-            className="w-full h-full object-cover object-center"
-            sizes="(max-width: 768px) 100vw, 1200px"
-            priority
-          />
-          </AspectRatio>
-        </div>
-      )}
-      </Suspense>
+
       {/* Header Section */}
       <header className="mb-8">
         {/* Title */}
         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight text-foreground">
           {post.title}
         </h1>
+
+    
 
         {/* Meta Information */}
         <div className="flex flex-wrap items-center gap-4 text-muted-foreground mb-6 pb-6 border-b">
@@ -81,6 +81,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
       </header>
+      <Suspense fallback={<div>Loading...</div>}>
+      {post.featuredImage && (
+        <div className="mb-8 -mx-4 md:mx-0 rounded-lg overflow-hidden shadow-xl">
+          <AspectRatio ratio={16 / 9}>
+          <Image
+            src={post.featuredImage}
+            alt={post.title}
+            fill
+            className="w-full h-full object-cover object-center"
+            sizes="(max-width: 768px) 100vw, 1200px"
+            priority
+          />
+          </AspectRatio>
+        </div>
+      )}
+      </Suspense>
 
       {/* Main Content */}
       <article className="blog-content">
@@ -96,6 +112,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <footer className="mt-16 pt-8 border-t">
         <Link
           href="/"
+          prefetch={true}
           className="text-primary hover:underline inline-flex items-center gap-2 text-sm font-medium transition-colors"
         >
           <span>←</span>

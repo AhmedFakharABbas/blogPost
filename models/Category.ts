@@ -7,4 +7,7 @@ const categorySchema = new mongoose.Schema({
 //   description: { type: String },
 }, { timestamps: true });
 
+// Add index on name for faster sorting and queries
+categorySchema.index({ name: 1 });
+
 export default mongoose.models.Category || mongoose.model('Category', categorySchema);

@@ -15,8 +15,10 @@ const postSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Add indexes for better query performance
+postSchema.index({ slug: 1 }); // For fast slug lookups
 postSchema.index({ published: 1, createdAt: -1 }); // For published posts sorted by date
 postSchema.index({ published: 1, categoryId: 1, createdAt: -1 }); // For category-filtered published posts
+postSchema.index({ published: 1, slug: 1 }); // For published post by slug (most common query)
 postSchema.index({ authorId: 1 });
 postSchema.index({ categoryId: 1 });
 

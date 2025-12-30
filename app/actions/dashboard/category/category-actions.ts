@@ -21,25 +21,36 @@ async function _getCategories() {
 
 // Cache categories for better performance
 // Note: Cache is invalidated when categories are created/updated/deleted
+// Using longer cache time since categories don't change often and we invalidate on mutations
 export async function getCategories() {
   return unstable_cache(
     _getCategories,
     ['categories'],
     {
-      revalidate: 60, // Cache for 1 minute
+      revalidate: 3600, // Cache for 1 hour (categories rarely change)
       tags: ['categories'],
     }
   )();
 }
 
-//get one category by id
+//get one category by id - Optimized with parallel queries
 export async function getCategoryById(id: string) {
   await connectToDatabase();
-  const category = await Category.findById(id);
+  
+  // Fetch category and post count in parallel for better performance
+  const [category, postsCount] = await Promise.all([
+    Category.findById(id).select('_id name').lean(),
+    Post.countDocuments({ categoryId: id }),
+  ]);
+  
   if (!category) return null;
   
-  const posts = await Post.find({ categoryId: id });
-  const postsCount = posts.length;
+  // Only fetch posts if needed (lazy loading)
+  const posts = postsCount > 0 
+    ? await Post.find({ categoryId: id })
+        .select('_id title slug')
+        .lean()
+    : [];
   
   return {
     id: category._id.toString(),
@@ -50,8 +61,6 @@ export async function getCategoryById(id: string) {
       slug: p.slug,
     })),
     postsCount,
-    createdAt: category.createdAt,
-    updatedAt: category.updatedAt,
   };
 }
 

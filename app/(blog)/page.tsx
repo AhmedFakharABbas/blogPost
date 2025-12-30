@@ -3,7 +3,7 @@ import BlogListClient from "./components/blog-list-client";
 import { getPublishedPosts } from "@/app/actions/client/blog-actions";
 import { Suspense } from "react";
 
-export const revalidate = 60; // ISR: revalidate every 60 seconds
+export const revalidate = 300; // ISR: revalidate every 5 minutes (longer cache = faster)
 export const dynamic = 'force-dynamic'; // Allow dynamic rendering for search params
 
 type PostWithRelations = {

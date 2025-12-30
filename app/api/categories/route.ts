@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import Category from '@/models/Category';
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 // import { getUserFromToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
@@ -13,13 +13,36 @@ async function getAuthUser() {
 return true;
 }
 
-// GET: List all categories
+// GET: List all categories - Optimized with caching
+
+async function _getCategoriesAPI() {
+  await connectToDatabase();
+  const categories = await Category.find({})
+    .select('_id name') // Only select needed fields
+    .sort({ name: 1 })
+    .lean();
+  return categories.map(cat => ({
+    id: cat._id.toString(),
+    name: cat.name,
+  }));
+}
+
+// Cache API responses for better performance
+const getCachedCategories = unstable_cache(
+  _getCategoriesAPI,
+  ['categories-api'],
+  {
+    revalidate: 3600, // Cache for 1 hour
+    tags: ['categories'],
+  }
+);
+
 export async function GET() {
   try {
-    await connectToDatabase();
-    const categories = await Category.find({}).sort({ name: 1 });
+    const categories = await getCachedCategories();
     return NextResponse.json(categories);
   } catch (error) {
+    console.error('Error fetching categories:', error);
     return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
   }
 }
