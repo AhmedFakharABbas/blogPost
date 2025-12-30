@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
+import Role from '@/models/Role';
 import bcrypt from 'bcryptjs'; // Use bcryptjs to match login route
 
 export async function POST(request: Request) {
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
 
     // Parse request body
     const { name, email, password } = await request.json();
+
 
     // Basic validation
     if (!name || !email || !password) {
@@ -26,6 +28,8 @@ export async function POST(request: Request) {
       );
     }
 
+ 
+
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -39,16 +43,32 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get or create default role for new registrations
+    const userCount = await User.countDocuments();
+    const isFirstUser = userCount === 0;
+    
+    // Determine which role to assign
+    const roleName = isFirstUser ? 'admin' : 'user';
+    let defaultRole = await Role.findOne({ name: roleName });
+    
+    // If role doesn't exist, create it
+    if (!defaultRole) {
+      defaultRole = await Role.create({
+        name: roleName,
+        permissions: [], // Empty permissions, can be assigned later via dashboard
+      });
+    }
+
     // Hash the password using bcryptjs (must match login route)
     const saltRounds = 12; // Recommended strength
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create new user using Mongoose
+    // Create new user using Mongoose with role reference
     const newUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password: hashedPassword,
-      role: 'user', // default role
+      role: defaultRole._id, // Assign role ObjectId
     });
 
     // Convert to plain object and remove password

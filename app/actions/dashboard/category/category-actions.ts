@@ -4,7 +4,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Category from "@/models/Category";
 import Post from "@/models/Post";
-import { revalidatePath, unstable_cache } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { categorySchema } from "@/lib/validation";
 
 // READ: Get all categories
@@ -20,12 +20,13 @@ async function _getCategories() {
 }
 
 // Cache categories for better performance
+// Note: Cache is invalidated when categories are created/updated/deleted
 export async function getCategories() {
   return unstable_cache(
     _getCategories,
     ['categories'],
     {
-      revalidate: 300, // Cache for 5 minutes (categories don't change often)
+      revalidate: 60, // Cache for 1 minute
       tags: ['categories'],
     }
   )();
@@ -63,7 +64,10 @@ export async function createCategory(data: unknown) {
   try {
     const result = await Category.create({ name: validated.name });
     console.log("Category created:", result);
+    // Invalidate both path and cache tag
     revalidatePath("/dashboard/category");
+    revalidateTag("categories");
+    return { success: true, category: result };
   } catch (error) {
     console.error("Error creating category:", error);
     throw error;
@@ -83,7 +87,9 @@ export async function updateCategory(id: string, data: unknown) {
 
   await Category.findByIdAndUpdate(id, { name: validated.name });
 
+  // Invalidate both path and cache tag
   revalidatePath("/dashboard/category");
+  revalidateTag("categories");
 }
 
 // DELETE
@@ -95,5 +101,7 @@ export async function deleteCategory(id: string) {
 
   await Category.findByIdAndDelete(id);
 
+  // Invalidate both path and cache tag
   revalidatePath("/dashboard/category");
+  revalidateTag("categories");
 }

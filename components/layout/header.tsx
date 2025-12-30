@@ -19,7 +19,7 @@ import {
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
 import { getCategories } from '@/app/actions/client/category-actions';
-import { ModeToggle } from './darkmode';
+// import { ModeToggle } from './darkmode';
 import { getSiteSettings } from '@/app/actions/dashboard/settings/site-settings-actions';
 import { SiteLogo } from '@/components/layout/site-logo';
 
@@ -74,7 +74,7 @@ async function DesktopNav({ categories }: { categories: { _id: string; name: str
         </NavigationMenuItem> */}
 
 
-      <ModeToggle />
+      {/* <ModeToggle /> */}
       </NavigationMenuList>
     </NavigationMenu>
   );
@@ -117,7 +117,7 @@ async function MobileNav({ categories }: { categories: { _id: string; name: stri
             About
           </Link>
         </nav>
-        <ModeToggle />
+        {/* <ModeToggle /> */}
       </SheetContent>
     </Sheet>
   );

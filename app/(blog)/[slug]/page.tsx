@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ReadOnlyEditor } from "@/components/ui/read-only-editor";
 import Image from "next/image";
 import { Suspense } from "react";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 // Revalidate every 60 seconds for fresh content
 export const revalidate = 60;
@@ -37,20 +38,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     : null;
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-4xl">
+    <div className="container mx-auto px-4 py-40 md:py-12 max-w-4xl">
       {/* Featured Image (if exists) */}
       <Suspense fallback={<div>Loading...</div>}>
       {post.featuredImage && (
         <div className="mb-8 -mx-4 md:mx-0 rounded-lg overflow-hidden shadow-xl">
+          <AspectRatio ratio={16 / 9}>
           <Image
             src={post.featuredImage}
             alt={post.title}
-            width={1200}
-            height={500}
-            className="w-full h-[400px] md:h-[500px] object-cover"
+            fill
+            className="w-full h-full object-cover object-center"
             sizes="(max-width: 768px) 100vw, 1200px"
             priority
           />
+          </AspectRatio>
         </div>
       )}
       </Suspense>

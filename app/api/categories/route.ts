@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import Category from '@/models/Category';
+import { revalidatePath, revalidateTag } from 'next/cache';
 // import { getUserFromToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
@@ -37,6 +38,11 @@ export async function POST(request: Request) {
     }
 
     const category = await Category.create({ name });
+    
+    // Invalidate cache so categories show up immediately
+    revalidatePath("/dashboard/category");
+    revalidateTag("categories");
+    
     return NextResponse.json(category, { status: 201 });
   } catch (error: any) {
     if (error.code === 11000) {

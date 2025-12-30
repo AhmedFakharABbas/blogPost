@@ -1,20 +1,18 @@
 // app/dashboard/category/create/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { createCategory } from '@/app/actions/dashboard/category/category-actions';
+import { toast } from 'sonner';
 
 export default function CreateCategoryPage() {
   const [name, setName] = useState('');
-  // const [slug, setSlug] = useState('');
-  // const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   // // Auto-generate slug from name
@@ -35,37 +33,26 @@ export default function CreateCategoryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create category');
-      }
-
-      setSuccess('Category created successfully!');
-      setName('');
-      // setSlug('');
-      // setDescription('');
-
-      // Optional: redirect to list page after 1 second
-      setTimeout(() => {
-        router.push('/dashboard/category');
-      }, 1000);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    
+    if (!name.trim()) {
+      toast.error('Category name is required');
+      return;
     }
+
+    startTransition(async () => {
+      try {
+        await createCategory({ name: name.trim() });
+        toast.success('Category created successfully!');
+        setName('');
+        
+        // Redirect to list page after a short delay
+        setTimeout(() => {
+          router.push('/dashboard/category');
+        }, 500);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to create category');
+      }
+    });
   };
 
   return (
@@ -85,55 +72,19 @@ export default function CreateCategoryPage() {
                   onChange={handleNameChange}
                   placeholder="e.g., Technology"
                   required
-                  disabled={loading}
+                  disabled={isPending}
                 />
               </div>
 
-              {/* <div>
-                <Label htmlFor="slug">Slug (URL-friendly) *</Label>
-                <Input
-                  id="slug"
-                  value={slug}
-                  onChange={(e) => setSlug(generateSlug(e.target.value))}
-                  placeholder="e.g., technology"
-                  required
-                  disabled={loading}
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Auto-generated from name. Edit if needed.
-                </p>
-              </div> */}
-
-              {/* <div>
-                <Label htmlFor="description">Description (Optional)</Label>
-                <textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of this category..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={loading}
-                />
-              </div> */}
-
-              {error && (
-                <p className="text-red-600 text-sm font-medium">{error}</p>
-              )}
-
-              {success && (
-                <p className="text-green-600 text-sm font-medium">{success}</p>
-              )}
-
               <div className="flex gap-4">
-                <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? 'Creating...' : 'Create Category'}
+                <Button type="submit" disabled={isPending} className="flex-1">
+                  {isPending ? 'Creating...' : 'Create Category'}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => router.push('/dashboard/category')}
-                  disabled={loading}
+                  disabled={isPending}
                 >
                   Cancel
                 </Button>
