@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { postSchema } from "@/lib/validation";
+import mongoose from "mongoose";
 
 export async function createPost(data: any) {
   await connectToDatabase();
@@ -137,49 +138,86 @@ export async function togglePublished(id: string, published: boolean) {
 }
 
 export async function bulkUpdatePostDates(postIds: string[]) {
+  let categoryIds = new Set<string>();
+  
   try {
     await connectToDatabase();
-    const mongoose = await import('mongoose');
     const now = new Date();
     
     if (!postIds || postIds.length === 0) {
       throw new Error('No post IDs provided');
     }
 
-    // Convert string IDs to ObjectIds
-    const objectIds = postIds.map(id => new mongoose.default.Types.ObjectId(id));
+    // Validate and convert string IDs to ObjectIds with error handling
+    const objectIds: any[] = [];
+    for (const id of postIds) {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error(`Invalid post ID: ${id}`);
+        }
+        objectIds.push(new mongoose.Types.ObjectId(id));
+      } catch (idError: any) {
+        console.error(`Invalid post ID: ${id}`, idError);
+        throw new Error(`Invalid post ID format: ${id}`);
+      }
+    }
+
+    if (objectIds.length === 0) {
+      throw new Error('No valid post IDs provided');
+    }
 
     // Get categories of posts before update for cache invalidation
-    const updatedPosts = await Post.find({ _id: { $in: objectIds } })
-      .select("categoryId")
-      .lean();
-    
-    const categoryIds = new Set(
-      updatedPosts
-        .map(p => p.categoryId)
-        .filter(Boolean)
-        .map(cat => typeof cat === 'object' ? cat._id.toString() : cat.toString())
-    );
+    try {
+      const updatedPosts = await Post.find({ _id: { $in: objectIds } })
+        .select("categoryId")
+        .lean();
+      
+      categoryIds = new Set(
+        updatedPosts
+          .map(p => p.categoryId)
+          .filter(Boolean)
+          .map(cat => typeof cat === 'object' && cat._id ? cat._id.toString() : cat.toString())
+      );
+    } catch (findError: any) {
+      console.error('Error fetching posts for cache invalidation:', findError);
+      // Continue with update even if category fetch fails
+    }
 
-    // Use updateMany with $set - this should work even with timestamps: true
-    // We need to bypass Mongoose's timestamp middleware for this specific operation
-    const result = await Post.collection.updateMany(
-      { _id: { $in: objectIds } },
-      { $set: { createdAt: now, updatedAt: now } }
-    );
+    // Use updateMany with $set - bypass Mongoose's timestamp middleware for this specific operation
+    // This directly updates the database without triggering timestamps: true middleware
+    let result;
+    try {
+      result = await Post.collection.updateMany(
+        { _id: { $in: objectIds } },
+        { $set: { createdAt: now, updatedAt: now } }
+      );
+    } catch (updateError: any) {
+      console.error('Error updating posts in database:', updateError);
+      throw new Error(`Database update failed: ${updateError?.message || 'Unknown error'}`);
+    }
 
-    // Revalidate all relevant paths
-    revalidatePath("/dashboard/blog");
-    revalidatePath("/blog");
-    revalidatePath("/", "layout");
+    // Revalidate all relevant paths - do this even if there were partial errors
+    try {
+      revalidatePath("/dashboard/blog");
+      revalidatePath("/blog");
+      revalidatePath("/", "layout");
+    } catch (revalidatePathError: any) {
+      console.error('Error revalidating paths:', revalidatePathError);
+      // Continue with cache tag invalidation
+    }
     
-    // Invalidate all cache tags for posts
-    revalidateTag("posts");
-    revalidateTag("all-posts");
-    
-    // Invalidate category-specific tags
-    for (const catId of categoryIds) {
-      revalidateTag(`category-${catId}`);
+    // Invalidate all cache tags for posts - critical for instant cache updates
+    try {
+      revalidateTag("posts");
+      revalidateTag("all-posts");
+      
+      // Invalidate category-specific tags
+      for (const catId of categoryIds) {
+        revalidateTag(`category-${catId}`);
+      }
+    } catch (revalidateTagError: any) {
+      console.error('Error revalidating cache tags:', revalidateTagError);
+      // Still return success if database update succeeded
     }
     
     return {
@@ -189,6 +227,20 @@ export async function bulkUpdatePostDates(postIds: string[]) {
     };
   } catch (error: any) {
     console.error('Error bulk updating post dates:', error);
+    
+    // Still try to invalidate cache even on error, as some posts might have been updated
+    try {
+      revalidateTag("posts");
+      revalidateTag("all-posts");
+      for (const catId of categoryIds) {
+        revalidateTag(`category-${catId}`);
+      }
+      revalidatePath("/dashboard/blog");
+      revalidatePath("/blog");
+    } catch (cacheError) {
+      console.error('Error invalidating cache after failure:', cacheError);
+    }
+    
     throw new Error(`Failed to update post dates: ${error?.message || 'Unknown error'}`);
   }
 }
