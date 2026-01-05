@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CldUploadWidget, CldImage } from "next-cloudinary";
 import Image from "next/image";
 import { updateSiteSettings, getSiteSettings, clearCache, fixImageUrls } from "@/app/actions/dashboard/settings/site-settings-actions";
 import { toast } from "sonner";
@@ -14,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Globe, Home, Search, Settings as SettingsIcon, Trash2, RefreshCw, ImageIcon, Code, MessageSquare, Eye, ExternalLink } from "lucide-react";
+import { Globe, Home, Search, Settings as SettingsIcon, Trash2, RefreshCw, ImageIcon, Code, MessageSquare, Eye, ExternalLink, Upload } from "lucide-react";
 
 // Timezone options
 const timezones = [
@@ -39,52 +38,120 @@ export default function SettingsForm() {
   const [clearingCache, setClearingCache] = useState(false);
   const [fixingUrls, setFixingUrls] = useState(false);
   const [viewingPreview, setViewingPreview] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
-    getSiteSettings().then((data) => {
-      // Ensure all fields are defined, even if empty
-      setSettings({
-        siteName: data.siteName || "My Blog",
-        siteDescription: data.siteDescription || "",
-        logoUrl: data.logoUrl || null,
-        logoPublicId: data.logoPublicId || null,
-        faviconUrl: data.faviconUrl || "",
-        timezone: data.timezone || "Asia/Karachi",
-        metaTitle: data.metaTitle || "",
-        metaDescription: data.metaDescription || "",
-        postsSchema: data.postsSchema || "",
-        pagesSchema: data.pagesSchema || "",
-        siteTitle: data.siteTitle || "",
-        seoDescription: data.seoDescription || "",
-        keywords: data.keywords || "",
-        robotsIndex: data.robotsIndex !== undefined ? data.robotsIndex : true,
-        robotsFollow: data.robotsFollow !== undefined ? data.robotsFollow : true,
-        contentType: data.contentType || "UTF-8",
-        language: data.language || "English",
-        revisitDays: data.revisitDays || 1,
-        author: data.author || "",
-        customHeadScripts: data.customHeadScripts || "",
-        firebaseMessagingSW: data.firebaseMessagingSW || "",
+    getSiteSettings()
+      .then((data) => {
+        // Ensure all fields are defined, even if empty
+        setSettings({
+          siteName: data.siteName || "My Blog",
+          siteDescription: data.siteDescription || "",
+          logoUrl: data.logoUrl || null,
+          logoPublicId: data.logoPublicId || null,
+          faviconUrl: data.faviconUrl || "",
+          timezone: data.timezone || "Asia/Karachi",
+          metaTitle: data.metaTitle || "",
+          metaDescription: data.metaDescription || "",
+          postsSchema: data.postsSchema || "",
+          pagesSchema: data.pagesSchema || "",
+          siteTitle: data.siteTitle || "",
+          seoDescription: data.seoDescription || "",
+          keywords: data.keywords || "",
+          robotsIndex: data.robotsIndex !== undefined ? data.robotsIndex : true,
+          robotsFollow: data.robotsFollow !== undefined ? data.robotsFollow : true,
+          contentType: data.contentType || "UTF-8",
+          language: data.language || "English",
+          revisitDays: data.revisitDays || 1,
+          author: data.author || "",
+          customHeadScripts: data.customHeadScripts || "",
+          firebaseMessagingSW: data.firebaseMessagingSW || "",
+        });
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error loading settings:", error);
+        toast.error("Failed to load settings. Using default values.");
+        // Set default values on error
+        setSettings({
+          siteName: "My Blog",
+          siteDescription: "",
+          logoUrl: null,
+          logoPublicId: null,
+          faviconUrl: "",
+          timezone: "Asia/Karachi",
+          metaTitle: "",
+          metaDescription: "",
+          postsSchema: "",
+          pagesSchema: "",
+          siteTitle: "",
+          seoDescription: "",
+          keywords: "",
+          robotsIndex: true,
+          robotsFollow: true,
+          contentType: "UTF-8",
+          language: "English",
+          revisitDays: 1,
+          author: "",
+          customHeadScripts: "",
+          firebaseMessagingSW: "",
+        });
+        setLoading(false);
       });
-      setLoading(false);
-    });
   }, []);
 
-  const handleUploadSuccess = (result: any) => {
-    if (result?.info) {
-      const publicId = result.info.public_id;
-      const url = result.info.secure_url;
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be smaller than 10MB");
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "settings");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Upload failed");
+      }
 
       // Update preview immediately
       setSettings((prev: any) => ({
         ...prev,
-        logoUrl: url,
-        logoPublicId: publicId,
+        logoUrl: data.url,
+        logoPublicId: data.url, // Use URL as identifier
       }));
-      
+
       toast.success("Logo uploaded successfully!");
-    } else {
-      toast.error("Upload failed. Please try again.");
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast.error(error.message || "Failed to upload logo. Please try again.");
+    } finally {
+      setUploadingLogo(false);
+      // Reset input
+      const input = e.target;
+      if (input) {
+        input.value = "";
+      }
     }
   };
 
@@ -278,23 +345,14 @@ export default function SettingsForm() {
             <div className="flex items-start gap-6">
               {settings.logoUrl ? (
                 <div className="relative w-48 h-32 border rounded-lg overflow-hidden bg-muted">
-                  {settings.logoPublicId ? (
-                    <CldImage
-                      src={settings.logoPublicId}
-                      alt="Site logo"
-                      width={192}
-                      height={128}
-                      className="object-contain w-full h-full"
-                    />
-                  ) : (
-                    <Image
-                      src={settings.logoUrl}
-                      alt="Site logo"
-                      fill
-                      className="object-contain"
-                      sizes="192px"
-                    />
-                  )}
+                  <Image
+                    src={settings.logoUrl}
+                    alt="Site logo"
+                    fill
+                    className="object-contain"
+                    sizes="192px"
+                    unoptimized
+                  />
                 </div>
               ) : (
                 <div className="w-48 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted">
@@ -303,24 +361,35 @@ export default function SettingsForm() {
               )}
 
               <div className="flex flex-col gap-2">
-                <CldUploadWidget
-                  uploadPreset="blog_featured"
-                  onSuccess={handleUploadSuccess}
-                  onError={(error: any) => {
-                    console.error('Upload error:', error);
-                    toast.error("Upload failed. Please try again.");
-                  }}
-                >
-                  {({ open }) => (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => open()}
-                    >
-                      {settings.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </Button>
-                  )}
-                </CldUploadWidget>
+                <label className="cursor-pointer">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingLogo}
+                    asChild
+                  >
+                    <span>
+                      {uploadingLogo ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          {settings.logoUrl ? "Change Logo" : "Upload Logo"}
+                        </>
+                      )}
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    disabled={uploadingLogo}
+                  />
+                </label>
                 {settings.logoUrl && (
                   <Button
                     type="button"
