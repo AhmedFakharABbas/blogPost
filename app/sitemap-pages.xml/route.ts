@@ -4,14 +4,22 @@ import { connectToDatabase } from "@/lib/mongodb";
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
-async function getSiteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'http://localhost:3000';
+function getSiteUrl(): string {
+  // Prioritize NEXT_PUBLIC_SITE_URL, then VERCEL_URL, then fallback
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ''); // Remove trailing slash
+  }
+  
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Fallback for local development
+  return 'http://localhost:3000';
 }
 
 export async function GET() {
-  const baseUrl = await getSiteUrl();
+  const baseUrl = getSiteUrl();
   
   try {
     await connectToDatabase();
@@ -44,13 +52,24 @@ ${urls || '  <!-- No pages published yet -->'}
 
     return new NextResponse(sitemap, {
       headers: {
-        'Content-Type': 'application/xml',
+        'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating pages sitemap:', error);
-    return new NextResponse('Error generating sitemap', { status: 500 });
+    // Return empty sitemap on error
+    const fallbackSitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Error loading pages -->
+</urlset>`;
+    
+    return new NextResponse(fallbackSitemap, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+      },
+    });
   }
 }
 
