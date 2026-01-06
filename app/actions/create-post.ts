@@ -67,7 +67,7 @@ export async function updatePost(id: string, data: unknown) {
 
   // Revalidate paths
   revalidatePath("/dashboard/blog");
-  revalidatePath(`/blog/${validated.data.slug}`);
+  revalidatePath(`/latest/${validated.data.slug}`);
   revalidatePath("/blog");
   
   // Revalidate cache tags to immediately update published posts

@@ -56,7 +56,7 @@ export async function createComment(data: {
   const comment = await Comment.create(commentData);
 
   // Revalidate the blog post page
-  revalidatePath(`/blog/[slug]`, "page");
+  revalidatePath(`/latest/[slug]`, "page");
 
   return {
     success: true,

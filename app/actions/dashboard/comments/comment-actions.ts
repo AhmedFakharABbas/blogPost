@@ -97,7 +97,7 @@ export async function approveComment(id: string) {
   }
 
   // Revalidate the blog post page
-  revalidatePath(`/blog/[slug]`, "page");
+  revalidatePath(`/latest/[slug]`, "page");
   revalidatePath("/dashboard/comments");
 
   return {
@@ -122,7 +122,7 @@ export async function rejectComment(id: string) {
   }
 
   // Revalidate the blog post page
-  revalidatePath(`/blog/[slug]`, "page");
+  revalidatePath(`/latest/[slug]`, "page");
   revalidatePath("/dashboard/comments");
 
   return {
@@ -146,7 +146,7 @@ export async function deleteComment(id: string) {
   await Comment.deleteMany({ parentId: id });
 
   // Revalidate the blog post page
-  revalidatePath(`/blog/[slug]`, "page");
+  revalidatePath(`/latest/[slug]`, "page");
   revalidatePath("/dashboard/comments");
 
   return {

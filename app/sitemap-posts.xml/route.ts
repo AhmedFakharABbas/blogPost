@@ -33,7 +33,7 @@ export async function GET() {
     const urls = posts.map((post) => {
       const lastmod = post.updatedAt || post.createdAt || new Date();
       return `  <url>
-    <loc>${baseUrl}/blog/${post.slug}</loc>
+    <loc>${baseUrl}/latest/${post.slug}</loc>
     <lastmod>${new Date(lastmod).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

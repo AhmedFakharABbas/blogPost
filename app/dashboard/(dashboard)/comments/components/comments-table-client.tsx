@@ -206,7 +206,7 @@ export function CommentsTableClient({ initialComments }: CommentsTableClientProp
                     </TableCell>
                     <TableCell>
                       <Link
-                        href={`/blog/${comment.postSlug}`}
+                        href={`/latest/${comment.postSlug}`}
                         target="_blank"
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
@@ -248,7 +248,7 @@ export function CommentsTableClient({ initialComments }: CommentsTableClientProp
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
                             <Link
-                              href={`/blog/${comment.postSlug}`}
+                              href={`/latest/${comment.postSlug}`}
                               target="_blank"
                               className="flex items-center"
                             >
