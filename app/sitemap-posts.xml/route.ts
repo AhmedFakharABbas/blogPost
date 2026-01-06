@@ -32,11 +32,16 @@ export async function GET() {
 
     const urls = posts.map((post) => {
       const lastmod = post.updatedAt || post.createdAt || new Date();
+      // Higher priority for recent posts (updated in last 7 days)
+      const daysSinceUpdate = (Date.now() - new Date(lastmod).getTime()) / (1000 * 60 * 60 * 24);
+      const priority = daysSinceUpdate < 7 ? '0.9' : daysSinceUpdate < 30 ? '0.8' : '0.7';
+      const changefreq = daysSinceUpdate < 7 ? 'daily' : daysSinceUpdate < 30 ? 'weekly' : 'monthly';
+      
       return `  <url>
     <loc>${baseUrl}/latest/${post.slug}</loc>
     <lastmod>${new Date(lastmod).toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
   </url>`;
     }).join('\n');
 

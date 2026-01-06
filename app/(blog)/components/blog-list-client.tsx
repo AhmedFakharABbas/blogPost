@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, User } from "lucide-react";
@@ -17,11 +17,11 @@ type PostWithRelations = {
   id: string;
   title: string;
   slug: string;
-  content: string | null;
+  content?: string | null; // Optional - not fetched for list views (performance optimization)
   excerpt: string | null;
   featuredImage: string | null;
   category: { id: string; name: string } | null;
-  author: { id: string; name: string; email: string } | null;
+  author: { id: string; name: string; email?: string } | null;
   createdAt: Date;
 };
 
@@ -149,14 +149,24 @@ export default function BlogListClient({
   }, []); // Only run once on mount
 
   // Save posts to sessionStorage whenever they change (but only after hydration)
+  // Debounced to avoid excessive writes
   useEffect(() => {
     if (isHydrated && typeof window !== 'undefined') {
-      const storageKey = getStorageKey(lastCategoryId);
-      const data = {
-        posts: serializePosts(posts),
-        hasMore,
-      };
-      sessionStorage.setItem(storageKey, JSON.stringify(data));
+      const timeoutId = setTimeout(() => {
+        const storageKey = getStorageKey(lastCategoryId);
+        const data = {
+          posts: serializePosts(posts),
+          hasMore,
+        };
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(data));
+        } catch (error) {
+          // Handle quota exceeded errors silently
+          console.warn('Failed to save to sessionStorage:', error);
+        }
+      }, 300); // Debounce by 300ms
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [posts, hasMore, lastCategoryId, isHydrated]);
 
@@ -199,8 +209,9 @@ export default function BlogListClient({
       startTransition(async () => {
         try {
           const result = await getPublishedPosts(effectiveCategoryId, 6, 0);
-          const newPosts = result.posts.map(post => ({
+          const newPosts: PostWithRelations[] = result.posts.map(post => ({
             ...post,
+            content: undefined, // Not fetched for list views (performance optimization)
             createdAt: new Date(post.createdAt),
           }));
           // Sort posts to ensure correct order (newest first)
@@ -217,7 +228,7 @@ export default function BlogListClient({
     }
   }, [searchParams, lastCategoryId, categoryId]);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     startTransition(async () => {
       try {
         // Prioritize prop categoryId over searchParams (for category pages)
@@ -225,8 +236,9 @@ export default function BlogListClient({
         const result = await getPublishedPosts(currentCategoryId, 6, posts.length);
         
         if (result.posts) {
-          const newPosts = result.posts.map(post => ({
+          const newPosts: PostWithRelations[] = result.posts.map(post => ({
             ...post,
+            content: undefined, // Not fetched for list views (performance optimization)
             createdAt: new Date(post.createdAt),
           }));
           
@@ -244,7 +256,7 @@ export default function BlogListClient({
         console.error('Error loading more posts:', error);
       }
     });
-  };
+  }, [categoryId, searchParams, posts.length]);
 
   // Show loading state when filtering
   if (isLoading) {

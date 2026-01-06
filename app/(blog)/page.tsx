@@ -7,7 +7,7 @@ import { getCanonicalUrl } from "@/lib/canonical-url";
 import { getSiteSettings } from "@/app/actions/client/site-settings-actions";
 
 export const revalidate = 300; // ISR: revalidate every 5 minutes (longer cache = faster)
-export const dynamic = 'force-dynamic'; // Allow dynamic rendering for search params
+// Removed force-dynamic to enable static generation for better performance
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -37,11 +37,11 @@ type PostWithRelations = {
   id: string;
   title: string;
   slug: string;
-  content: string | null;
+  content?: string | null; // Optional - not fetched for list views (performance optimization)
   excerpt: string | null;
   featuredImage: string | null;
   category: { id: string; name: string } | null;
-  author: { id: string; name: string; email: string } | null;
+  author: { id: string; name: string; email?: string } | null;
   createdAt: Date;
 };
 
@@ -86,7 +86,7 @@ async function BlogListServer({
         id: post.id,
         title: post.title,
         slug: post.slug,
-        content: post.content || null,
+        // content not included - not fetched for list views (performance optimization)
         excerpt: post.excerpt || null,
         featuredImage: post.featuredImage || null,
         category: post.category || null,

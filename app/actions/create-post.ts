@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Post from "@/models/Post";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { postSchema } from "@/lib/validation";
+import { submitUrlToGoogle } from "@/lib/google-indexing";
 
 export async function createPost(data: unknown) {
   await connectToDatabase();
@@ -13,7 +14,7 @@ export async function createPost(data: unknown) {
     throw new Error(validated.error.issues[0].message);
   }
 
-  await Post.create({
+  const post = await Post.create({
     title: validated.data.title,
     slug: validated.data.slug,
     excerpt: validated.data.excerpt,
@@ -33,6 +34,20 @@ export async function createPost(data: unknown) {
   revalidateTag("all-posts");
   if (validated.data.categoryId) {
     revalidateTag(`category-${validated.data.categoryId}`);
+  }
+
+  // Submit to Google Search Console if published
+  if (validated.data.published) {
+    try {
+      const { getCanonicalUrl } = await import("@/lib/canonical-url");
+      const postUrl = await getCanonicalUrl(`/latest/${validated.data.slug}`);
+      // Submit asynchronously (don't wait for it)
+      submitUrlToGoogle(postUrl, 'URL_UPDATED').catch(err => {
+        console.error('Failed to submit post to Google:', err);
+      });
+    } catch (error) {
+      console.error('Error generating URL for Google submission:', error);
+    }
   }
   // redirect("/dashboard/blog");
 }
@@ -85,6 +100,20 @@ export async function updatePost(id: string, data: unknown) {
   // Revalidate new category
   if (validated.data.categoryId) {
     revalidateTag(`category-${validated.data.categoryId}`);
+  }
+
+  // Submit to Google Search Console if published
+  if (validated.data.published) {
+    try {
+      const { getCanonicalUrl } = await import("@/lib/canonical-url");
+      const postUrl = await getCanonicalUrl(`/latest/${validated.data.slug}`);
+      // Submit asynchronously (don't wait for it)
+      submitUrlToGoogle(postUrl, 'URL_UPDATED').catch(err => {
+        console.error('Failed to submit updated post to Google:', err);
+      });
+    } catch (error) {
+      console.error('Error generating URL for Google submission:', error);
+    }
   }
 }
 

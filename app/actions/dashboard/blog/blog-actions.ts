@@ -6,6 +6,7 @@ import Post from "@/models/Post";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { postSchema } from "@/lib/validation";
 import mongoose from "mongoose";
+import { submitUrlToGoogle } from "@/lib/google-indexing";
 
 export async function createPost(data: any) {
   await connectToDatabase();
@@ -96,6 +97,8 @@ export async function deletePost(id: string) {
   await connectToDatabase();
   const post = await Post.findById(id).lean();
   const categoryId = post?.categoryId?.toString();
+  const slug = post?.slug;
+  const wasPublished = post?.published;
   
   await Post.findByIdAndDelete(id);
   
@@ -108,6 +111,20 @@ export async function deletePost(id: string) {
   revalidateTag("all-posts");
   if (categoryId) {
     revalidateTag(`category-${categoryId}`);
+  }
+
+  // Notify Google if post was published
+  if (wasPublished && slug) {
+    try {
+      const { getCanonicalUrl } = await import("@/lib/canonical-url");
+      const postUrl = await getCanonicalUrl(`/latest/${slug}`);
+      // Submit deletion asynchronously
+      submitUrlToGoogle(postUrl, 'URL_DELETED').catch(err => {
+        console.error('Failed to notify Google of post deletion:', err);
+      });
+    } catch (error) {
+      console.error('Error generating URL for Google deletion notification:', error);
+    }
   }
   // No redirect needed here – list stays on same page
 }
@@ -134,6 +151,20 @@ export async function togglePublished(id: string, published: boolean) {
   revalidateTag("all-posts");
   if (categoryId) {
     revalidateTag(`category-${categoryId}`);
+  }
+
+  // Submit to Google Search Console when published
+  if (!published) { // post.published is now !published (toggled)
+    try {
+      const { getCanonicalUrl } = await import("@/lib/canonical-url");
+      const postUrl = await getCanonicalUrl(`/latest/${post.slug}`);
+      // Submit asynchronously (don't wait for it)
+      submitUrlToGoogle(postUrl, 'URL_UPDATED').catch(err => {
+        console.error('Failed to submit post to Google:', err);
+      });
+    } catch (error) {
+      console.error('Error generating URL for Google submission:', error);
+    }
   }
 }
 

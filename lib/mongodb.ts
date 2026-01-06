@@ -43,12 +43,16 @@ export async function connectToDatabase() {
     const opts = {
       bufferCommands: false,
       maxPoolSize: 10, // Maintain up to 10 socket connections
-      serverSelectionTimeoutMS: 10000, // Increased to 10 seconds for serverless
+      minPoolSize: 2, // Keep minimum 2 connections ready
+      serverSelectionTimeoutMS: 5000, // Reduced to 5 seconds for faster failure
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      connectTimeoutMS: 10000, // Connection timeout
       family: 4, // Use IPv4, skip trying IPv6
       // Additional options for serverless environments
       retryWrites: true,
       retryReads: true,
+      // Optimize for performance
+      maxIdleTimeMS: 30000, // Close idle connections after 30 seconds
     };
 
     console.log('🔄 Attempting MongoDB connection...');

@@ -3,7 +3,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Comment from "@/models/Comment";
 import { commentSchema } from "@/lib/validation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 
 // Create a new comment (public - requires approval)
 export async function createComment(data: {
@@ -66,13 +66,14 @@ export async function createComment(data: {
 }
 
 // Get approved comments for a post (public)
-export async function getApprovedComments(postId: string) {
+async function _getApprovedComments(postId: string) {
   await connectToDatabase();
   
   const comments = await Comment.find({
     postId,
     approved: true,
   })
+    .select('name email content parentId createdAt updatedAt')
     .sort({ createdAt: 1 }) // Oldest first for threaded comments
     .lean();
 
@@ -85,5 +86,17 @@ export async function getApprovedComments(postId: string) {
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
   }));
+}
+
+// Cache comments for 2 minutes (comments can be added frequently)
+export async function getApprovedComments(postId: string) {
+  return unstable_cache(
+    () => _getApprovedComments(postId),
+    [`comments-${postId}`],
+    {
+      revalidate: 120, // Cache for 2 minutes
+      tags: ['comments', `post-${postId}`],
+    }
+  )();
 }
 

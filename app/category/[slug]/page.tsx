@@ -8,8 +8,8 @@ import type { Metadata } from "next";
 import { getCanonicalUrl } from "@/lib/canonical-url";
 import { AdPlaceholder } from "@/components/ads/ad-placeholder";
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 300;
+// Use ISR for better performance - categories don't change frequently
+export const revalidate = 600; // 10 minutes cache
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -86,9 +86,22 @@ async function BlogListServer({ categoryId }: { categoryId: string }) {
       );
     }
 
-    const posts = (result.posts || [])
+    // Import the type from BlogListClient to ensure consistency
+    type PostWithRelations = {
+      id: string;
+      title: string;
+      slug: string;
+      content?: string | null;
+      excerpt: string | null;
+      featuredImage: string | null;
+      category: { id: string; name: string } | null;
+      author: { id: string; name: string; email?: string } | null;
+      createdAt: Date;
+    };
+
+    const posts: PostWithRelations[] = (result.posts || [])
       .filter(post => post && post.id && post.title)
-      .map((post) => {
+      .map((post): PostWithRelations => {
         // Safely convert createdAt to Date
         const postDate = post.createdAt as unknown;
         let createdAt: Date;
@@ -108,7 +121,7 @@ async function BlogListServer({ categoryId }: { categoryId: string }) {
           id: post.id,
           title: post.title,
           slug: post.slug,
-          content: post.content || null,
+          // content not included - not fetched for list views (performance optimization)
           excerpt: post.excerpt || null,
           featuredImage: post.featuredImage || null,
           category: post.category || null,

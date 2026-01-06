@@ -127,6 +127,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const postId = post._id.toString();
   const approvedComments = await getApprovedComments(postId);
 
+  const canonicalUrl = await getCanonicalUrl(`/latest/${post.slug}`);
+  const siteUrl = canonicalUrl.split('/latest/')[0];
+  
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -137,25 +140,30 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       "@type": "Person",
       "name": author?.name || "Anonymous"
     },
-    // "publisher": {
-    //   "@type": "Organization",
-    //   "name": siteSettings?.name || "Anonymous"
-    // },
-    "image": {
-      "@type": "ImageObject",
-      "url": post.featuredImage,
+    "publisher": {
+      "@type": "Organization",
+      "name": siteSettings?.siteName || siteSettings?.siteTitle || "Blog",
+      ...(siteSettings?.domain && {
+        "url": siteUrl
+      })
     },
+    ...(post.featuredImage && {
+      "image": {
+        "@type": "ImageObject",
+        "url": post.featuredImage,
+      }
+    }),
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://${siteSettings?.domain || 'example.com'}/latest/${post.slug}`
+      "@id": canonicalUrl
     },
     "articleBody": post.content,
-    // "keywords": post.keywords,
-    "category": post.category,
-    // "tags": post.tags,
-    "url": `https://${siteSettings?.domain || 'example.com'}/latest/${post.slug}`,
-    "wordCount": post.content.length,
-    "readingTime": post.content.length / 200,
+    ...(post.categoryId && typeof post.categoryId === 'object' && {
+      "articleSection": post.categoryId.name
+    }),
+    "url": canonicalUrl,
+    "wordCount": post.content ? post.content.replace(/<[^>]*>/g, '').length : 0,
+    "readingTime": post.content ? Math.ceil(post.content.replace(/<[^>]*>/g, '').length / 200) : 0,
   }
 
   return (

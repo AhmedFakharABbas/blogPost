@@ -5,7 +5,8 @@ import { ReadOnlyEditor } from "@/components/ui/read-only-editor";
 import Image from "next/image";
 import { getCanonicalUrl } from "@/lib/canonical-url";
 
-export const dynamic = 'force-dynamic';
+// Use ISR instead of force-dynamic for better performance
+// Pages can be statically generated and revalidated every 5 minutes
 export const revalidate = 300;
 
 type Props = {

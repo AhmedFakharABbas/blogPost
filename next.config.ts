@@ -33,6 +33,14 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-sheet',
     ],
   },
+  // Performance optimizations
+  // Note: swcMinify is enabled by default in Next.js 15, no need to specify
+  // Reduce JavaScript bundle size
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
 };
 
 export default nextConfig;

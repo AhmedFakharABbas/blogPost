@@ -73,10 +73,10 @@ async function _getPublishedPosts(
         }
         
         // Fetch one extra post to determine if there are more
-        // Optimized query with only needed fields
+        // Optimized query with only needed fields (content removed - not needed for list view)
         // Sort by updatedAt first (latest updated), then createdAt (latest created) to ensure latest posts appear first
         const posts = await Post.find(query)
-            .select('title slug excerpt featuredImage authorId categoryId createdAt updatedAt')
+            .select('title slug excerpt featuredImage authorId categoryId createdAt updatedAt') // Removed 'content' - huge performance gain
             .populate('authorId', 'name')
             .populate('categoryId', 'name')
             .sort({ updatedAt: -1, createdAt: -1 }) // Sort by updatedAt first, then createdAt (both descending)
@@ -93,7 +93,7 @@ async function _getPublishedPosts(
                 id: post._id.toString(),
                 title: post.title,
                 slug: post.slug,
-                content: post.content,
+                // content removed - not needed for list view (huge performance gain)
                 excerpt: post.excerpt,
                 published: post.published,
                 categoryId: post.categoryId ? (typeof post.categoryId === 'object' ? post.categoryId._id.toString() : post.categoryId.toString()) : null,
@@ -106,7 +106,7 @@ async function _getPublishedPosts(
                 author: post.authorId && typeof post.authorId === 'object' ? {
                     id: post.authorId._id.toString(),
                     name: post.authorId.name,
-                    email: post.authorId.email,
+                    email: post.authorId.email || undefined,
                 } : null,
                 createdAt: toISOString(post.createdAt),
             })),
