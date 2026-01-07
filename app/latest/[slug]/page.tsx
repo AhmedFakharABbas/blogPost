@@ -17,6 +17,7 @@ import { getCanonicalUrl } from "@/lib/canonical-url";
 import { AdPlaceholder } from "@/components/ads/ad-placeholder";
 import { CommentsSection } from "@/components/comments/comments-section";
 import { getApprovedComments } from "@/app/actions/client/comment-actions";
+import { toPSTISOString } from "@/lib/date-utils";
 
 // Revalidate every 5 minutes for fresh content (longer cache = faster)
 export const revalidate = 300;
@@ -134,8 +135,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     "headline": post.title,
-    "datePublished": post.createdAt,
-    "dateModified": post.updatedAt,
+    "datePublished": toPSTISOString(new Date(post.createdAt)),
+    "dateModified": toPSTISOString(new Date(post.updatedAt)),
     "author": {
       "@type": "Person",
       "name": author?.name || "Anonymous"
