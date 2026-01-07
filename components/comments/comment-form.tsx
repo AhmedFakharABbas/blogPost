@@ -44,15 +44,22 @@ export function CommentForm({ postId, parentId = null, onSuccess }: CommentFormP
     startTransition(async () => {
       try {
         // Get IP address and user agent for spam prevention (optional)
+        // Use AbortController to prevent duplicate requests
         let ipAddress = "";
         try {
-          const ipResponse = await fetch("/api/ip");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+          const ipResponse = await fetch("/api/ip", { 
+            signal: controller.signal,
+            cache: 'no-store' // Prevent caching
+          });
+          clearTimeout(timeoutId);
           if (ipResponse.ok) {
             const ipData = await ipResponse.json();
             ipAddress = ipData.ip || "";
           }
         } catch (error) {
-          // Ignore IP fetch errors
+          // Ignore IP fetch errors (timeout, network, etc.)
         }
 
         const userAgent = typeof window !== "undefined" ? navigator.userAgent : "";

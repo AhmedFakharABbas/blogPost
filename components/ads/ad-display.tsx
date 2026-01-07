@@ -30,24 +30,34 @@ export function AdDisplay({ position, pageType, categoryId, className }: AdDispl
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    
     async function loadAd() {
       try {
         // Get current domain
         const domain = typeof window !== 'undefined' ? window.location.hostname : undefined;
         const ads = await getAdsForDisplay(position, pageType, domain, categoryId);
-        if (ads.length > 0) {
+        if (mounted && ads.length > 0) {
           setAd(ads[0]);
-          // Track impression
-          await recordAdImpression(ads[0].id);
+          // Track impression asynchronously (don't block rendering)
+          recordAdImpression(ads[0].id).catch(err => {
+            console.error('Error recording ad impression:', err);
+          });
         }
       } catch (error) {
         console.error('Error loading ad:', error);
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     loadAd();
+    
+    return () => {
+      mounted = false;
+    };
   }, [position, pageType, categoryId]);
 
   if (isLoading || !ad) {

@@ -243,7 +243,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <footer className="mt-16 pt-8 border-t">
         <Link
           href="/"
-          prefetch={true}
+          prefetch={false}
           className="text-primary hover:underline inline-flex items-center gap-2 text-sm font-medium transition-colors"
         >
           <span>←</span>

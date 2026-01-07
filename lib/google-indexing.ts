@@ -38,12 +38,21 @@ interface GoogleIndexingResponse {
  * Get Google OAuth2 access token using service account
  */
 async function getGoogleAccessToken(): Promise<string> {
+  const timestamp = new Date().toISOString();
   const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   
   if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+    console.error(`[${timestamp}] ❌ Google Search Console credentials not configured`);
+    console.error(`[${timestamp}] ❌ GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL ? 'Set' : 'Missing'}`);
+    console.error(`[${timestamp}] ❌ GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY ? 'Set' : 'Missing'}`);
     throw new Error('Google Search Console credentials not configured. Please set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY environment variables.');
   }
+  
+  // Log account email (masked for security)
+  const maskedEmail = `${GOOGLE_SERVICE_ACCOUNT_EMAIL.substring(0, 3)}***${GOOGLE_SERVICE_ACCOUNT_EMAIL.substring(GOOGLE_SERVICE_ACCOUNT_EMAIL.indexOf('@'))}`;
+  console.log(`[${timestamp}] 🔑 Obtaining Google OAuth2 access token...`);
+  console.log(`[${timestamp}] 📧 Service Account: ${maskedEmail}`);
 
   // Use jose library (already in dependencies) and node:crypto for JWT signing
   const { SignJWT } = await import('jose');
@@ -81,10 +90,14 @@ async function getGoogleAccessToken(): Promise<string> {
 
   if (!response.ok) {
     const error = await response.text();
+    const errorTimestamp = new Date().toISOString();
+    console.error(`[${errorTimestamp}] ❌ Failed to get Google access token:`, error);
     throw new Error(`Failed to get access token: ${error}`);
   }
 
   const data = await response.json();
+  const successTimestamp = new Date().toISOString();
+  console.log(`[${successTimestamp}] ✅ Google OAuth2 access token obtained successfully`);
   return data.access_token;
 }
 
@@ -94,12 +107,26 @@ async function getGoogleAccessToken(): Promise<string> {
  * @param type - 'URL_UPDATED' for new/updated content, 'URL_DELETED' for removed content
  */
 export async function submitUrlToGoogle(url: string, type: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED'): Promise<boolean> {
+  const timestamp = new Date().toISOString();
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  
   try {
     // Check if Google Search Console is configured
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
-      console.warn('⚠️ Google Search Console not configured. Skipping URL submission.');
+    if (!serviceAccountEmail || !process.env.GOOGLE_PRIVATE_KEY) {
+      console.warn(`[${timestamp}] ⚠️ Google Search Console not configured. Skipping URL submission.`);
+      console.warn(`[${timestamp}] ⚠️ GOOGLE_SERVICE_ACCOUNT_EMAIL: ${serviceAccountEmail ? 'Set' : 'Missing'}`);
+      console.warn(`[${timestamp}] ⚠️ GOOGLE_PRIVATE_KEY: ${process.env.GOOGLE_PRIVATE_KEY ? 'Set' : 'Missing'}`);
       return false;
     }
+
+    // Log account info (masked for security)
+    const maskedEmail = serviceAccountEmail 
+      ? `${serviceAccountEmail.substring(0, 3)}***${serviceAccountEmail.substring(serviceAccountEmail.indexOf('@'))}`
+      : 'Not configured';
+    console.log(`[${timestamp}] 🔄 Submitting URL to Google Search Console...`);
+    console.log(`[${timestamp}] 📧 Service Account: ${maskedEmail}`);
+    console.log(`[${timestamp}] 🔗 URL: ${url}`);
+    console.log(`[${timestamp}] 📝 Type: ${type}`);
 
     // Validate URL
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -108,6 +135,7 @@ export async function submitUrlToGoogle(url: string, type: 'URL_UPDATED' | 'URL_
 
     // Get access token
     const accessToken = await getGoogleAccessToken();
+    console.log(`[${timestamp}] 🔑 Access token obtained successfully`);
 
     // Submit URL to Google Indexing API
     const response = await fetch('https://indexing.googleapis.com/v3/urlNotifications:publish', {
@@ -124,11 +152,11 @@ export async function submitUrlToGoogle(url: string, type: 'URL_UPDATED' | 'URL_
 
     if (!response.ok) {
       const errorData: GoogleIndexingResponse = await response.json();
-      console.error('❌ Google Indexing API error:', errorData);
+      console.error(`[${timestamp}] ❌ Google Indexing API error:`, errorData);
       
       // Don't throw for certain errors (e.g., URL already submitted)
       if (errorData.error?.code === 429) {
-        console.warn('⚠️ Rate limit exceeded. URL will be indexed when Google crawls it.');
+        console.warn(`[${timestamp}] ⚠️ Rate limit exceeded. URL will be indexed when Google crawls it.`);
         return false;
       }
       
@@ -136,10 +164,21 @@ export async function submitUrlToGoogle(url: string, type: 'URL_UPDATED' | 'URL_
     }
 
     const data: GoogleIndexingResponse = await response.json();
-    console.log('✅ URL submitted to Google:', url, data);
+    const successTimestamp = new Date().toISOString();
+    console.log(`[${successTimestamp}] ✅ URL successfully submitted to Google Search Console`);
+    console.log(`[${successTimestamp}] 📧 Service Account: ${maskedEmail}`);
+    console.log(`[${successTimestamp}] 🔗 URL: ${url}`);
+    console.log(`[${successTimestamp}] 📝 Type: ${type}`);
+    console.log(`[${successTimestamp}] 📊 Response:`, JSON.stringify(data, null, 2));
     return true;
   } catch (error: any) {
-    console.error('❌ Error submitting URL to Google:', error.message);
+    const errorTimestamp = new Date().toISOString();
+    const maskedEmail = serviceAccountEmail 
+      ? `${serviceAccountEmail.substring(0, 3)}***${serviceAccountEmail.substring(serviceAccountEmail.indexOf('@'))}`
+      : 'Not configured';
+    console.error(`[${errorTimestamp}] ❌ Error submitting URL to Google:`, error.message);
+    console.error(`[${errorTimestamp}] 📧 Service Account: ${maskedEmail}`);
+    console.error(`[${errorTimestamp}] 🔗 URL: ${url}`);
     // Don't throw - we don't want to break the app if Google indexing fails
     return false;
   }
@@ -150,6 +189,11 @@ export async function submitUrlToGoogle(url: string, type: 'URL_UPDATED' | 'URL_
  * Note: Google Indexing API has rate limits, so we process sequentially
  */
 export async function submitUrlsToGoogle(urls: string[], type: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED'): Promise<number> {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 📦 Starting bulk submission to Google Search Console`);
+  console.log(`[${timestamp}] 📊 Total URLs to submit: ${urls.length}`);
+  console.log(`[${timestamp}] 📝 Type: ${type}`);
+  
   let successCount = 0;
   
   for (const url of urls) {
@@ -161,10 +205,39 @@ export async function submitUrlsToGoogle(urls: string[], type: 'URL_UPDATED' | '
       // Add small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
-      console.error(`Failed to submit ${url}:`, error);
+      const errorTimestamp = new Date().toISOString();
+      console.error(`[${errorTimestamp}] ❌ Failed to submit ${url}:`, error);
     }
   }
   
+  const finalTimestamp = new Date().toISOString();
+  console.log(`[${finalTimestamp}] ✅ Bulk submission completed: ${successCount}/${urls.length} successful`);
+  
   return successCount;
+}
+
+/**
+ * Get Google Search Console configuration status
+ * Returns masked account email for security
+ */
+export function getGoogleConfigStatus(): {
+  configured: boolean;
+  accountEmail?: string;
+  accountEmailMasked?: string;
+  hasPrivateKey: boolean;
+} {
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const hasPrivateKey = !!process.env.GOOGLE_PRIVATE_KEY;
+  
+  const maskedEmail = serviceAccountEmail 
+    ? `${serviceAccountEmail.substring(0, 3)}***${serviceAccountEmail.substring(serviceAccountEmail.indexOf('@'))}`
+    : undefined;
+  
+  return {
+    configured: !!serviceAccountEmail && hasPrivateKey,
+    accountEmail: serviceAccountEmail,
+    accountEmailMasked: maskedEmail,
+    hasPrivateKey,
+  };
 }
 

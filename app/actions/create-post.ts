@@ -38,15 +38,21 @@ export async function createPost(data: unknown) {
 
   // Submit to Google Search Console if published
   if (validated.data.published) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 🚀 Post published - triggering Google Search Console update`);
+    console.log(`[${timestamp}] 📝 Post Title: ${validated.data.title}`);
+    console.log(`[${timestamp}] 🔗 Post Slug: ${validated.data.slug}`);
     try {
       const { getCanonicalUrl } = await import("@/lib/canonical-url");
       const postUrl = await getCanonicalUrl(`/latest/${validated.data.slug}`);
       // Submit asynchronously (don't wait for it)
       submitUrlToGoogle(postUrl, 'URL_UPDATED').catch(err => {
-        console.error('Failed to submit post to Google:', err);
+        const errorTimestamp = new Date().toISOString();
+        console.error(`[${errorTimestamp}] ❌ Failed to submit post to Google:`, err);
       });
     } catch (error) {
-      console.error('Error generating URL for Google submission:', error);
+      const errorTimestamp = new Date().toISOString();
+      console.error(`[${errorTimestamp}] ❌ Error generating URL for Google submission:`, error);
     }
   }
   // redirect("/dashboard/blog");
@@ -104,15 +110,26 @@ export async function updatePost(id: string, data: unknown) {
 
   // Submit to Google Search Console if published
   if (validated.data.published) {
+    const timestamp = new Date().toISOString();
+    const wasPublished = existingPost.published;
+    const isNowPublished = validated.data.published;
+    
+    console.log(`[${timestamp}] 🔄 Post updated - checking Google Search Console update`);
+    console.log(`[${timestamp}] 📝 Post Title: ${validated.data.title}`);
+    console.log(`[${timestamp}] 🔗 Post Slug: ${validated.data.slug}`);
+    console.log(`[${timestamp}] 📊 Published Status: ${wasPublished} → ${isNowPublished}`);
+    
     try {
       const { getCanonicalUrl } = await import("@/lib/canonical-url");
       const postUrl = await getCanonicalUrl(`/latest/${validated.data.slug}`);
       // Submit asynchronously (don't wait for it)
       submitUrlToGoogle(postUrl, 'URL_UPDATED').catch(err => {
-        console.error('Failed to submit updated post to Google:', err);
+        const errorTimestamp = new Date().toISOString();
+        console.error(`[${errorTimestamp}] ❌ Failed to submit updated post to Google:`, err);
       });
     } catch (error) {
-      console.error('Error generating URL for Google submission:', error);
+      const errorTimestamp = new Date().toISOString();
+      console.error(`[${errorTimestamp}] ❌ Error generating URL for Google submission:`, error);
     }
   }
 }

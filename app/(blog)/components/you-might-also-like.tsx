@@ -51,7 +51,7 @@ export default function YouMightAlsoLike({ posts, count }: YouMightAlsoLikeProps
             <Link
               key={post.id}
               href={`/latest/${post.slug}`}
-              prefetch={true}
+              prefetch={false}
               className="block group hover:bg-background/50 rounded-md p-3 -m-3 transition-colors"
             >
               <div className="flex gap-4 items-start">
