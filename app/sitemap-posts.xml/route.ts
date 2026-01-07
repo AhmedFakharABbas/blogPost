@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from "@/lib/mongodb";
+import { toPSTISOString } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
+// No revalidate needed - force-dynamic makes it always fresh
 
 function getSiteUrl(): string {
   // Prioritize NEXT_PUBLIC_SITE_URL, then VERCEL_URL, then fallback
@@ -39,12 +40,13 @@ export async function GET() {
       
       return `  <url>
     <loc>${baseUrl}/latest/${post.slug}</loc>
-    <lastmod>${new Date(lastmod).toISOString()}</lastmod>
+    <lastmod>${toPSTISOString(new Date(lastmod))}</lastmod>
     <changefreq>${changefreq}</changefreq>
     <priority>${priority}</priority>
   </url>`;
     }).join('\n');
 
+    const now = new Date();
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
@@ -54,13 +56,13 @@ export async function GET() {
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>${baseUrl}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
+    <lastmod>${toPSTISOString(now)}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>${baseUrl}/blog</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
+    <lastmod>${toPSTISOString(now)}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -70,23 +72,24 @@ ${urls}
     return new NextResponse(sitemap, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, s-maxage=0, must-revalidate', // No cache - always fresh for SEO
       },
     });
   } catch (error: any) {
     console.error('Error generating posts sitemap:', error);
     // Return a basic sitemap even on error
+    const now = new Date();
     const fallbackSitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>${baseUrl}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
+    <lastmod>${toPSTISOString(now)}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>${baseUrl}/blog</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
+    <lastmod>${toPSTISOString(now)}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600; // Revalidate every hour
+// No revalidate needed - force-dynamic makes it always fresh
 
 function getSiteUrl(): string {
   // Prioritize NEXT_PUBLIC_SITE_URL, then VERCEL_URL, then fallback
@@ -41,7 +41,7 @@ export async function GET() {
     return new NextResponse(sitemapIndex, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, s-maxage=0, must-revalidate', // No cache - always fresh for SEO
       },
     });
   } catch (error: any) {

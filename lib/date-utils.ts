@@ -12,28 +12,49 @@
  */
 export function toPSTISOString(date: Date = new Date()): string {
   // PKT is UTC+5 (5 hours ahead of UTC)
-  const pktOffsetMinutes = 5 * 60; // +5 hours in minutes
+  const pktOffsetHours = 5;
   
-  // Get the UTC time in milliseconds
-  const utcTime = date.getTime();
+  // Get UTC components
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const seconds = date.getUTCSeconds();
+  const milliseconds = date.getUTCMilliseconds();
   
-  // Calculate PKT time (add 5 hours)
-  const pktTime = utcTime + (pktOffsetMinutes * 60 * 1000);
+  // Add PKT offset (5 hours) to get PKT time
+  let pktHours = hours + pktOffsetHours;
+  let pktDay = day;
+  let pktMonth = month;
+  let pktYear = year;
   
-  // Create a new date object for PKT
-  const pktDate = new Date(pktTime);
+  // Handle day overflow (if hours >= 24)
+  if (pktHours >= 24) {
+    pktHours -= 24;
+    pktDay += 1;
+    // Handle month overflow
+    const daysInMonth = new Date(pktYear, pktMonth + 1, 0).getDate();
+    if (pktDay > daysInMonth) {
+      pktDay = 1;
+      pktMonth += 1;
+      // Handle year overflow
+      if (pktMonth >= 12) {
+        pktMonth = 0;
+        pktYear += 1;
+      }
+    }
+  }
   
-  // Format as ISO string
-  const year = pktDate.getUTCFullYear();
-  const month = String(pktDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(pktDate.getUTCDate()).padStart(2, '0');
-  const hours = String(pktDate.getUTCHours()).padStart(2, '0');
-  const minutes = String(pktDate.getUTCMinutes()).padStart(2, '0');
-  const seconds = String(pktDate.getUTCSeconds()).padStart(2, '0');
-  const milliseconds = String(pktDate.getUTCMilliseconds()).padStart(3, '0');
+  // Format as ISO string with PKT offset (+05:00)
+  const monthStr = String(pktMonth + 1).padStart(2, '0');
+  const dayStr = String(pktDay).padStart(2, '0');
+  const hoursStr = String(pktHours).padStart(2, '0');
+  const minutesStr = String(minutes).padStart(2, '0');
+  const secondsStr = String(seconds).padStart(2, '0');
+  const millisecondsStr = String(milliseconds).padStart(3, '0');
   
-  // Return ISO string with PKT offset (+05:00)
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+05:00`;
+  return `${pktYear}-${monthStr}-${dayStr}T${hoursStr}:${minutesStr}:${secondsStr}.${millisecondsStr}+05:00`;
 }
 
 /**

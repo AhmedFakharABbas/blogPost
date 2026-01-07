@@ -3,7 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { toPSTISOString } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600;
+// No revalidate needed - force-dynamic makes it always fresh
 
 function getSiteUrl(): string {
   // Prioritize NEXT_PUBLIC_SITE_URL, then VERCEL_URL, then fallback
@@ -54,7 +54,7 @@ ${urls || '  <!-- No pages published yet -->'}
     return new NextResponse(sitemap, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, s-maxage=0, must-revalidate', // No cache - always fresh for SEO
       },
     });
   } catch (error: any) {
